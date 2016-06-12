@@ -1,4 +1,8 @@
-package chacha20poly1305_test
+// Copyright 2014 Coda Hale. All rights reserved.
+// Use of this source code is governed by an MIT
+// License that can be found in the LICENSE file.
+
+package chacha20poly1305
 
 import (
 	"bytes"
@@ -6,8 +10,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/codahale/chacha20"
-	"github.com/codahale/chacha20poly1305"
+	"github.com/tmthrgd/chacha20"
 	"golang.org/x/crypto/poly1305"
 )
 
@@ -51,7 +54,7 @@ func TestSealing(t *testing.T) {
 			t.Error(err)
 		}
 
-		c, err := chacha20poly1305.New(key)
+		c, err := New(key)
 		if err != nil {
 			t.Error(err)
 		}
@@ -72,9 +75,9 @@ func TestSealing(t *testing.T) {
 }
 
 func TestRoundtrip(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
+	key := make([]byte, KeySize)
 
-	c, err := chacha20poly1305.New(key)
+	c, err := New(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -95,9 +98,9 @@ func TestRoundtrip(t *testing.T) {
 }
 
 func TestModifiedData(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
+	key := make([]byte, KeySize)
 
-	c, err := chacha20poly1305.New(key)
+	c, err := New(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -110,15 +113,15 @@ func TestModifiedData(t *testing.T) {
 	data[0] ^= 1
 
 	_, err = c.Open(nil, nonce, ciphertext, data)
-	if err != chacha20poly1305.ErrAuthFailed {
+	if err != ErrAuthFailed {
 		t.Error("Should have failed, but didn't")
 	}
 }
 
 func TestModifiedCiphertext(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
+	key := make([]byte, KeySize)
 
-	c, err := chacha20poly1305.New(key)
+	c, err := New(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -131,14 +134,14 @@ func TestModifiedCiphertext(t *testing.T) {
 	ciphertext[0] ^= 1
 
 	_, err = c.Open(nil, nonce, ciphertext, data)
-	if err != chacha20poly1305.ErrAuthFailed {
+	if err != ErrAuthFailed {
 		t.Error("Should have failed, but didn't")
 	}
 }
 
 func TestNonceSize(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
-	c, err := chacha20poly1305.New(key)
+	key := make([]byte, KeySize)
+	c, err := New(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -149,8 +152,8 @@ func TestNonceSize(t *testing.T) {
 }
 
 func TestOverhead(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
-	c, err := chacha20poly1305.New(key)
+	key := make([]byte, KeySize)
+	c, err := New(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -162,22 +165,22 @@ func TestOverhead(t *testing.T) {
 
 func TestInvalidKey(t *testing.T) {
 	key := make([]byte, 31)
-	_, err := chacha20poly1305.New(key)
+	_, err := New(key)
 
-	if err != chacha20poly1305.ErrInvalidKey {
+	if err != ErrInvalidKey {
 		t.Errorf("Expected invalid key error but was %v", err)
 	}
 }
 
 func TestSealInvalidNonce(t *testing.T) {
 	defer func() {
-		if r := recover(); r != nil && r != chacha20poly1305.ErrInvalidNonce {
+		if r := recover(); r != nil && r != ErrInvalidNonce {
 			t.Errorf("Expected invalid key panic but was %v", r)
 		}
 	}()
 
-	key := make([]byte, chacha20poly1305.KeySize)
-	c, err := chacha20poly1305.New(key)
+	key := make([]byte, KeySize)
+	c, err := New(key)
 
 	if err != nil {
 		t.Error(err)
@@ -190,8 +193,8 @@ func TestSealInvalidNonce(t *testing.T) {
 }
 
 func TestOpenInvalidNonce(t *testing.T) {
-	key := make([]byte, chacha20poly1305.KeySize)
-	c, err := chacha20poly1305.New(key)
+	key := make([]byte, KeySize)
+	c, err := New(key)
 
 	if err != nil {
 		t.Error(err)
@@ -204,7 +207,7 @@ func TestOpenInvalidNonce(t *testing.T) {
 
 	_, err = c.Open(nil, nonce[0:4], ciphertext, data)
 
-	if err != chacha20poly1305.ErrInvalidNonce {
+	if err != ErrInvalidNonce {
 		t.Errorf("Expected invalid nonce error but was %v", err)
 	}
 }
@@ -218,9 +221,9 @@ func readRandomNonce(i int) []byte {
 }
 
 func ExampleNew() {
-	key := readSecretKey(chacha20poly1305.KeySize) // must be 256 bits long
+	key := readSecretKey(KeySize) // must be 256 bits long
 
-	c, err := chacha20poly1305.New(key)
+	c, err := New(key)
 	if err != nil {
 		panic(err)
 	}
@@ -231,6 +234,5 @@ func ExampleNew() {
 	ciphertext := c.Seal(nil, nonce, plaintext, data)
 
 	fmt.Printf("%x\n", ciphertext)
-	// Output:
-	// e6669e9e333e4a5af5df2b8d1669cbdc175bb32da46484e6e358
+	// Output: e6669e9e333e4a5af5df2b8d1669cbdc175bb32da46484e6e358
 }

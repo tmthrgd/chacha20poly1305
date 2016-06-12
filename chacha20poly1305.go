@@ -1,3 +1,7 @@
+// Copyright 2014 Coda Hale. All rights reserved.
+// Use of this source code is governed by an MIT
+// License that can be found in the LICENSE file.
+
 // Package chacha20poly1305 implements the AEAD_CHACHA20_POLY1305 algorithm,
 // which combines ChaCha20, a secure stream cipher, with Poly1305, a secure MAC
 // function.
@@ -38,8 +42,13 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/codahale/chacha20"
+	"github.com/tmthrgd/chacha20"
 	"golang.org/x/crypto/poly1305"
+)
+
+const (
+	// KeySize is the required size of ChaCha20 keys.
+	KeySize = chacha20.KeySize
 )
 
 var (
@@ -52,9 +61,6 @@ var (
 
 	// ErrInvalidNonce is returned when the provided nonce is the wrong size.
 	ErrInvalidNonce = errors.New("invalid nonce size")
-
-	// KeySize is the required size of ChaCha20 keys.
-	KeySize = chacha20.KeySize
 )
 
 // New creates a new AEAD instance using the given key. The key must be exactly
@@ -103,7 +109,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	}
 
 	digest := ciphertext[len(ciphertext)-k.Overhead():]
-	ciphertext = ciphertext[0 : len(ciphertext)-k.Overhead()]
+	ciphertext = ciphertext[:len(ciphertext)-k.Overhead()]
 
 	c, pk := k.initialize(nonce)
 
@@ -122,7 +128,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 // Converts the given key and nonce into 64 bytes of ChaCha20 key stream, the
 // first 32 of which are used as the Poly1305 key.
 func (k *chacha20Key) initialize(nonce []byte) (cipher.Stream, [32]byte) {
-	c, err := chacha20.New(k[0:], nonce)
+	c, err := chacha20.New(k[:], nonce)
 	if err != nil {
 		panic(err) // basically impossible
 	}
@@ -140,7 +146,7 @@ func (k *chacha20Key) initialize(nonce []byte) (cipher.Stream, [32]byte) {
 
 func tag(key [32]byte, ciphertext, data []byte) []byte {
 	m := make([]byte, len(ciphertext)+len(data)+8+8)
-	copy(m[0:], data)
+	copy(m[:], data)
 	binary.LittleEndian.PutUint64(m[len(data):], uint64(len(data)))
 
 	copy(m[len(data)+8:], ciphertext)
@@ -150,5 +156,5 @@ func tag(key [32]byte, ciphertext, data []byte) []byte {
 	var out [poly1305.TagSize]byte
 	poly1305.Sum(&out, m, &key)
 
-	return out[0:]
+	return out[:]
 }
