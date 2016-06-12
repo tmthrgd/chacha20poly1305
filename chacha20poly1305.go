@@ -1,6 +1,10 @@
 // Copyright 2014 Coda Hale. All rights reserved.
 // Use of this source code is governed by an MIT
 // License that can be found in the LICENSE file.
+//
+// Copyright 2013 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
 
 // Package chacha20poly1305 implements the AEAD_CHACHA20_POLY1305 algorithm,
 // which combines ChaCha20, a secure stream cipher, with Poly1305, a secure MAC
@@ -93,14 +97,22 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic(ErrInvalidNonce)
 	}
 
-	c, pk := k.initialize(nonce)
+	c, err := chacha20.New(k[:], nonce)
+	if err != nil {
+		panic(err) // basically impossible
+	}
 
-	ciphertext := make([]byte, len(plaintext))
-	c.XORKeyStream(ciphertext, plaintext)
+	ret, out := sliceForAppend(dst, len(plaintext) + poly1305.TagSize)
 
-	tag := tag(pk, ciphertext, data)
+	var pk [32]byte
+	c.XORKeyStream(pk[:], pk[:])
+	var dummy [32]byte
+	c.XORKeyStream(dummy[:], dummy[:])
 
-	return append(dst, append(ciphertext, tag...)...)
+	c.XORKeyStream(out, plaintext)
+
+	auth(&pk, out[len(plaintext):], out[:len(plaintext)], data)
+	return ret
 }
 
 func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
@@ -108,53 +120,59 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 		return nil, ErrInvalidNonce
 	}
 
-	digest := ciphertext[len(ciphertext)-k.Overhead():]
-	ciphertext = ciphertext[:len(ciphertext)-k.Overhead()]
+	tag := ciphertext[len(ciphertext)-poly1305.TagSize:]
+	ciphertext = ciphertext[:len(ciphertext)-poly1305.TagSize]
 
-	c, pk := k.initialize(nonce)
+	c, err := chacha20.New(k[:], nonce)
+	if err != nil {
+		return nil, err
+	}
 
-	tag := tag(pk, ciphertext, data)
+	var pk [32]byte
+	c.XORKeyStream(pk[:], pk[:])
+	var dummy [32]byte
+	c.XORKeyStream(dummy[:], dummy[:])
 
-	if subtle.ConstantTimeCompare(tag, digest) != 1 {
+	var expectedTag [poly1305.TagSize]byte
+	auth(&pk, expectedTag[:], ciphertext, data)
+
+	if subtle.ConstantTimeCompare(expectedTag[:], tag) != 1 {
 		return nil, ErrAuthFailed
 	}
 
-	plaintext := make([]byte, len(ciphertext))
-	c.XORKeyStream(plaintext, ciphertext)
-
-	return append(dst, plaintext...), nil
+	ret, out := sliceForAppend(dst, len(ciphertext))
+	c.XORKeyStream(out, ciphertext)
+	return ret, nil
 }
 
-// Converts the given key and nonce into 64 bytes of ChaCha20 key stream, the
-// first 32 of which are used as the Poly1305 key.
-func (k *chacha20Key) initialize(nonce []byte) (cipher.Stream, [32]byte) {
-	c, err := chacha20.New(k[:], nonce)
-	if err != nil {
-		panic(err) // basically impossible
-	}
+func auth(key *[32]byte, out, ciphertext, data []byte) {
+	m := make([]byte, len(data)+8+len(ciphertext)+8)
 
-	subkey := make([]byte, 64)
-	c.XORKeyStream(subkey, subkey)
-
-	var key [32]byte
-	for i := 0; i < 32; i++ {
-		key[i] = subkey[i]
-	}
-
-	return c, key
-}
-
-func tag(key [32]byte, ciphertext, data []byte) []byte {
-	m := make([]byte, len(ciphertext)+len(data)+8+8)
 	copy(m[:], data)
 	binary.LittleEndian.PutUint64(m[len(data):], uint64(len(data)))
 
 	copy(m[len(data)+8:], ciphertext)
-	binary.LittleEndian.PutUint64(m[len(data)+8+len(ciphertext):],
-		uint64(len(ciphertext)))
+	binary.LittleEndian.PutUint64(m[len(data)+8+len(ciphertext):], uint64(len(ciphertext)))
 
-	var out [poly1305.TagSize]byte
-	poly1305.Sum(&out, m, &key)
+	var tag [poly1305.TagSize]byte
+	poly1305.Sum(&tag, m, key)
 
-	return out[:]
+	copy(out, tag[:])
+	return
+}
+
+// sliceForAppend takes a slice and a requested number of bytes. It returns a
+// slice with the contents of the given slice followed by that many bytes and a
+// second slice that aliases into it and contains only the extra bytes. If the
+// original slice has sufficient capacity then no allocation is performed.
+func sliceForAppend(in []byte, n int) (head, tail []byte) {
+	if total := len(in) + n; cap(in) >= total {
+		head = in[:total]
+	} else {
+		head = make([]byte, total)
+		copy(head, in)
+	}
+
+	tail = head[len(in):]
+	return
 }
