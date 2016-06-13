@@ -41,10 +41,12 @@
 package chacha20poly1305
 
 import (
+	"bytes"
 	"crypto/cipher"
 	"crypto/subtle"
 	"encoding/binary"
 	"errors"
+	"sync"
 
 	"github.com/tmthrgd/chacha20"
 	"golang.org/x/crypto/poly1305"
@@ -145,19 +147,34 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	return ret, nil
 }
 
+var authPool = &sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 func auth(key *[32]byte, out, ciphertext, data []byte) {
-	m := make([]byte, len(data)+8+len(ciphertext)+8)
+	buf := authPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	buf.Grow(len(data) + 8 + len(ciphertext) + 8)
 
-	copy(m[:], data)
-	binary.LittleEndian.PutUint64(m[len(data):], uint64(len(data)))
+	buf.Write(data)
+	binary.Write(buf, binary.LittleEndian, uint64(len(data)))
 
-	copy(m[len(data)+8:], ciphertext)
-	binary.LittleEndian.PutUint64(m[len(data)+8+len(ciphertext):], uint64(len(ciphertext)))
+	buf.Write(ciphertext)
+	binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+
+	m := buf.Bytes()
 
 	var tag [poly1305.TagSize]byte
 	poly1305.Sum(&tag, m, key)
-
 	copy(out, tag[:])
+
+	for i := 0; i < len(data); i++ {
+		m[i] = 0
+	}
+
+	authPool.Put(buf)
 	return
 }
 
