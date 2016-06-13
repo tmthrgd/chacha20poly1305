@@ -10,7 +10,7 @@ An implementation of the chacha20poly1305 AEAD construction from
 
 ```
 BenchmarkChaCha20Poly1305Go-8	     100	  11447803 ns/op	  91.60 MB/s	[codahale/chacha20poly1305]
-BenchmarkChaCha20Poly1305-8  	     500	   3297028 ns/op	 318.04 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
+BenchmarkChaCha20Poly1305-8  	    1000	   1523185 ns/op	 688.41 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
 BenchmarkAESGCM-8            	    2000	    878952 ns/op	1192.98 MB/s	[crypto/aes crypto/cipher]
 ```
 
