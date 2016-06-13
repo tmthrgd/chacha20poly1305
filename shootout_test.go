@@ -18,7 +18,7 @@ func benchmarkAEAD(b *testing.B, c cipher.AEAD) {
 	b.SetBytes(benchSize)
 
 	input := make([]byte, benchSize)
-	output := make([]byte, benchSize)
+	output := make([]byte, 0, benchSize+c.Overhead())
 	nonce := make([]byte, c.NonceSize())
 
 	for i := 0; i < b.N; i++ {
