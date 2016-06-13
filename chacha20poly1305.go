@@ -102,7 +102,7 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic(err) // basically impossible
 	}
 
-	ret, out := sliceForAppend(dst, len(plaintext) + poly1305.TagSize)
+	ret, out := sliceForAppend(dst, len(plaintext)+poly1305.TagSize)
 
 	var pk [32]byte
 	c.XORKeyStream(pk[:], pk[:])
