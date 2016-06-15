@@ -77,10 +77,7 @@ func New(key []byte) (cipher.AEAD, error) {
 	}
 
 	k := new(chacha20Key)
-	for i, v := range key {
-		k[i] = v
-	}
-
+	copy(k[:], key)
 	return k, nil
 }
 
