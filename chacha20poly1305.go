@@ -49,7 +49,7 @@ import (
 	"sync"
 
 	"github.com/tmthrgd/chacha20"
-	"golang.org/x/crypto/poly1305"
+	"github.com/tmthrgd/poly1305"
 )
 
 const (

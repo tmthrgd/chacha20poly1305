@@ -15,7 +15,7 @@ import (
 
 	codahale "github.com/codahale/chacha20poly1305"
 	"github.com/tmthrgd/chacha20"
-	"golang.org/x/crypto/poly1305"
+	"github.com/tmthrgd/poly1305"
 )
 
 // stolen from http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-02#section-7
