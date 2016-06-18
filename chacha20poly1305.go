@@ -41,7 +41,6 @@
 package chacha20poly1305
 
 import (
-	"bytes"
 	"crypto/cipher"
 	"crypto/subtle"
 	"encoding/binary"
@@ -137,14 +136,12 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 	ret, out := sliceForAppend(dst, len(plaintext)+poly1305.TagSize)
 
-	var pk [32]byte
+	var pk [64]byte
 	c.XORKeyStream(pk[:], pk[:])
-	var dummy [32]byte
-	c.XORKeyStream(dummy[:], dummy[:])
 
 	c.XORKeyStream(out, plaintext)
 
-	k.auth(&pk, out[len(plaintext):], out[:len(plaintext)], data)
+	k.auth(pk[:32], out[len(plaintext):], out[:len(plaintext)], data)
 	return ret
 }
 
@@ -161,13 +158,11 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 		return nil, err
 	}
 
-	var pk [32]byte
+	var pk [64]byte
 	c.XORKeyStream(pk[:], pk[:])
-	var dummy [32]byte
-	c.XORKeyStream(dummy[:], dummy[:])
 
 	var expectedTag [poly1305.TagSize]byte
-	k.auth(&pk, expectedTag[:], ciphertext, data)
+	k.auth(pk[:32], expectedTag[:], ciphertext, data)
 
 	if subtle.ConstantTimeCompare(expectedTag[:], tag) != 1 {
 		return nil, ErrAuthFailed
@@ -178,24 +173,37 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	return ret, nil
 }
 
-var authPool = &sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
+type grower interface {
+	Grow(n int)
 }
 
-func (k *chacha20Key) auth(key *[32]byte, out, ciphertext, data []byte) {
-	buf := authPool.Get().(*bytes.Buffer)
-	buf.Reset()
+type getSetBuffer interface {
+	GetBuffer() interface{}
+	SetBuffer(interface{})
+}
+
+var authPool = new(sync.Pool)
+
+func (k *chacha20Key) auth(key, out, ciphertext, data []byte) {
+	m, err := poly1305.New(key)
+	if err != nil {
+		panic(err)
+	}
+
+	if b, ok := m.(getSetBuffer); ok {
+		b.SetBuffer(authPool.Get())
+	}
 
 	if k.draft {
-		buf.Grow(len(data) + 8 + len(ciphertext) + 8)
+		if g, ok := m.(grower); ok {
+			g.Grow(len(data) + 8 + len(ciphertext) + 8)
+		}
 
-		buf.Write(data)
-		binary.Write(buf, binary.LittleEndian, uint64(len(data)))
+		m.Write(data)
+		binary.Write(m, binary.LittleEndian, uint64(len(data)))
 
-		buf.Write(ciphertext)
-		binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+		m.Write(ciphertext)
+		binary.Write(m, binary.LittleEndian, uint64(len(ciphertext)))
 	} else {
 		dPad := len(data) % poly1305PadLen
 		if dPad != 0 {
@@ -207,31 +215,28 @@ func (k *chacha20Key) auth(key *[32]byte, out, ciphertext, data []byte) {
 			cPad = poly1305PadLen - cPad
 		}
 
-		buf.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
+		if g, ok := m.(grower); ok {
+			g.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
+		}
 
 		var zero [15]byte
 
-		buf.Write(data)
-		buf.Write(zero[:dPad])
+		m.Write(data)
+		m.Write(zero[:dPad])
 
-		buf.Write(ciphertext)
-		buf.Write(zero[:cPad])
+		m.Write(ciphertext)
+		m.Write(zero[:cPad])
 
-		binary.Write(buf, binary.LittleEndian, uint64(len(data)))
-		binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+		binary.Write(m, binary.LittleEndian, uint64(len(data)))
+		binary.Write(m, binary.LittleEndian, uint64(len(ciphertext)))
 	}
 
-	m := buf.Bytes()
+	m.Sum(out[:0])
 
-	var tag [poly1305.TagSize]byte
-	poly1305.Sum(&tag, m, key)
-	copy(out, tag[:])
-
-	for i := 0; i < len(data); i++ {
-		m[i] = 0
+	if b, ok := m.(getSetBuffer); ok {
+		authPool.Put(b.GetBuffer())
 	}
 
-	authPool.Put(buf)
 	return
 }
 
