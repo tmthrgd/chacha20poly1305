@@ -5,7 +5,7 @@
 
 An implementation of the chacha20poly1305 AEAD construction from
 [draft-agl-tls-chacha20poly1305-03](http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-03)
-and [rfc7539](https://tools.ietf.org/html/rfc7539).
+and [RFC7539](https://tools.ietf.org/html/rfc7539).
 
 ## Benchmark
 

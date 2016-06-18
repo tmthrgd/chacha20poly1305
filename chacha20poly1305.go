@@ -82,7 +82,8 @@ func New(key []byte) (cipher.AEAD, error) {
 }
 
 // NewRFC creates a new AEAD instance using the given key. The key must be exactly
-// 256 bits long. RFC...
+// 256 bits long. The returned cipher is an implementation of the RFC7539 AEAD
+// construct.
 func NewRFC(key []byte) (cipher.AEAD, error) {
 	if len(key) != KeySize {
 		return nil, ErrInvalidKey
@@ -94,7 +95,8 @@ func NewRFC(key []byte) (cipher.AEAD, error) {
 }
 
 // NewDraft creates a new AEAD instance using the given key. The key must be
-// exactly 256 bits long. Draft...
+// exactly 256 bits long. The returned cipher is an implementation of the
+// draft-agl-tls-chacha20poly1305-03 AEAD construct.
 func NewDraft(key []byte) (cipher.AEAD, error) {
 	if len(key) != KeySize {
 		return nil, ErrInvalidKey
