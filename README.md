@@ -4,16 +4,18 @@
 [![Build Status](https://travis-ci.org/tmthrgd/chacha20poly1305.svg?branch=master)](https://travis-ci.org/tmthrgd/chacha20poly1305)
 
 An implementation of the chacha20poly1305 AEAD construction from
-[draft-agl-tls-chacha20poly1305-03](http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-03).
+[draft-agl-tls-chacha20poly1305-03](http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-03)
+and [rfc7539](https://tools.ietf.org/html/rfc7539).
 
 ## Benchmark
 
 ```
-BenchmarkChaCha20Poly1305Go-8	     100	  11447803 ns/op	  91.60 MB/s	[codahale/chacha20poly1305]
-BenchmarkChaCha20Poly1305-8  	    1000	   1523185 ns/op	 688.41 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
-BenchmarkAESGCM-8            	    2000	    878952 ns/op	1192.98 MB/s	[crypto/aes crypto/cipher]
+BenchmarkDraftChaCha20Poly1305Codahale-8	     100	  11554288 ns/op	  90.75 MB/s	[codahale/chacha20poly1305]
+BenchmarkRFCChaCha20Poly1305-8          	    1000	   1498907 ns/op	 699.56 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
+BenchmarkDraftChaCha20Poly1305-8        	    1000	   1527140 ns/op	 686.63 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
+BenchmarkAESGCM-8                       	    2000	    877037 ns/op	1195.59 MB/s	[crypto/aes crypto/cipher]
 ```
 
 ## License
 
-Unless otherwise noted, the chacha20 source files are distributed under The MIT License found in the LICENSE file.
+Unless otherwise noted, the chacha20poly1305 source files are distributed under The MIT License found in the LICENSE file.

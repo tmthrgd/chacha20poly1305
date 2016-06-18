@@ -55,6 +55,8 @@ import (
 const (
 	// KeySize is the required size of ChaCha20 keys.
 	KeySize = chacha20.KeySize
+
+	poly1305PadLen = 16
 )
 
 var (
@@ -70,21 +72,51 @@ var (
 )
 
 // New creates a new AEAD instance using the given key. The key must be exactly
-// 256 bits long.
+// 256 bits long. New behaves like NewDraft.
+//
+// In most cases either NewRFC or NewDraft should be used instead.
+//
+// This is maintained for compatibility reasons.
 func New(key []byte) (cipher.AEAD, error) {
+	return NewDraft(key)
+}
+
+// NewRFC creates a new AEAD instance using the given key. The key must be exactly
+// 256 bits long. RFC...
+func NewRFC(key []byte) (cipher.AEAD, error) {
 	if len(key) != KeySize {
 		return nil, ErrInvalidKey
 	}
 
 	k := new(chacha20Key)
-	copy(k[:], key)
+	copy(k.key[:], key)
 	return k, nil
 }
 
-type chacha20Key [chacha20.KeySize]byte // A 256-bit ChaCha20 key.
+// NewDraft creates a new AEAD instance using the given key. The key must be
+// exactly 256 bits long. Draft...
+func NewDraft(key []byte) (cipher.AEAD, error) {
+	if len(key) != KeySize {
+		return nil, ErrInvalidKey
+	}
 
-func (*chacha20Key) NonceSize() int {
-	return chacha20.NonceSize
+	k := &chacha20Key{draft: true}
+	copy(k.key[:], key)
+	return k, nil
+}
+
+type chacha20Key struct {
+	key [chacha20.KeySize]byte
+
+	draft bool // draft or RFC
+}
+
+func (k *chacha20Key) NonceSize() int {
+	if k.draft {
+		return chacha20.DraftNonceSize
+	}
+
+	return chacha20.RFCNonceSize
 }
 
 func (*chacha20Key) Overhead() int {
@@ -96,7 +128,7 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 		panic(ErrInvalidNonce)
 	}
 
-	c, err := chacha20.New(k[:], nonce)
+	c, err := chacha20.New(k.key[:], nonce)
 	if err != nil {
 		panic(err) // basically impossible
 	}
@@ -110,7 +142,7 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 	c.XORKeyStream(out, plaintext)
 
-	auth(&pk, out[len(plaintext):], out[:len(plaintext)], data)
+	k.auth(&pk, out[len(plaintext):], out[:len(plaintext)], data)
 	return ret
 }
 
@@ -122,7 +154,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	tag := ciphertext[len(ciphertext)-poly1305.TagSize:]
 	ciphertext = ciphertext[:len(ciphertext)-poly1305.TagSize]
 
-	c, err := chacha20.New(k[:], nonce)
+	c, err := chacha20.New(k.key[:], nonce)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +165,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	c.XORKeyStream(dummy[:], dummy[:])
 
 	var expectedTag [poly1305.TagSize]byte
-	auth(&pk, expectedTag[:], ciphertext, data)
+	k.auth(&pk, expectedTag[:], ciphertext, data)
 
 	if subtle.ConstantTimeCompare(expectedTag[:], tag) != 1 {
 		return nil, ErrAuthFailed
@@ -150,16 +182,42 @@ var authPool = &sync.Pool{
 	},
 }
 
-func auth(key *[32]byte, out, ciphertext, data []byte) {
+func (k *chacha20Key) auth(key *[32]byte, out, ciphertext, data []byte) {
 	buf := authPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	buf.Grow(len(data) + 8 + len(ciphertext) + 8)
 
-	buf.Write(data)
-	binary.Write(buf, binary.LittleEndian, uint64(len(data)))
+	if k.draft {
+		buf.Grow(len(data) + 8 + len(ciphertext) + 8)
 
-	buf.Write(ciphertext)
-	binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+		buf.Write(data)
+		binary.Write(buf, binary.LittleEndian, uint64(len(data)))
+
+		buf.Write(ciphertext)
+		binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+	} else {
+		dPad := len(data) % poly1305PadLen
+		if dPad != 0 {
+			dPad = poly1305PadLen - dPad
+		}
+
+		cPad := len(ciphertext) % poly1305PadLen
+		if cPad != 0 {
+			cPad = poly1305PadLen - cPad
+		}
+
+		buf.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
+
+		var zero [15]byte
+
+		buf.Write(data)
+		buf.Write(zero[:dPad])
+
+		buf.Write(ciphertext)
+		buf.Write(zero[:cPad])
+
+		binary.Write(buf, binary.LittleEndian, uint64(len(data)))
+		binary.Write(buf, binary.LittleEndian, uint64(len(ciphertext)))
+	}
 
 	m := buf.Bytes()
 

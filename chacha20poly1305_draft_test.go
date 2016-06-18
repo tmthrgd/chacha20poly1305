@@ -8,15 +8,21 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"math/rand"
+	"reflect"
 	"testing"
+	"testing/quick"
 
+	codahale "github.com/codahale/chacha20poly1305"
 	"github.com/tmthrgd/chacha20"
 	"golang.org/x/crypto/poly1305"
 )
 
 // stolen from http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-02#section-7
-var testVectors = [][]string{
-	[]string{
+var draftTestVectors = []struct {
+	key, plaintext, nonce, data, expected string
+}{
+	{
 		"4290bcb154173531f314af57f3be3b5006da371ece272afa1b5dbdd1100a1007",
 		"86d09974840bded2a5ca",
 		"cd7cf67be39c794a",
@@ -25,36 +31,36 @@ var testVectors = [][]string{
 	},
 }
 
-func TestSealing(t *testing.T) {
-	for i, vector := range testVectors {
+func TestDraftSealing(t *testing.T) {
+	for i, vector := range draftTestVectors {
 		t.Logf("Running test vector %d", i)
 
-		key, err := hex.DecodeString(vector[0])
+		key, err := hex.DecodeString(vector.key)
 		if err != nil {
 			t.Error(err)
 		}
 
-		plaintext, err := hex.DecodeString(vector[1])
+		plaintext, err := hex.DecodeString(vector.plaintext)
 		if err != nil {
 			t.Error(err)
 		}
 
-		nonce, err := hex.DecodeString(vector[2])
+		nonce, err := hex.DecodeString(vector.nonce)
 		if err != nil {
 			t.Error(err)
 		}
 
-		data, err := hex.DecodeString(vector[3])
+		data, err := hex.DecodeString(vector.data)
 		if err != nil {
 			t.Error(err)
 		}
 
-		expected, err := hex.DecodeString(vector[4])
+		expected, err := hex.DecodeString(vector.expected)
 		if err != nil {
 			t.Error(err)
 		}
 
-		c, err := New(key)
+		c, err := NewDraft(key)
 		if err != nil {
 			t.Error(err)
 		}
@@ -74,10 +80,10 @@ func TestSealing(t *testing.T) {
 	}
 }
 
-func TestRoundtrip(t *testing.T) {
+func TestDraftRoundtrip(t *testing.T) {
 	key := make([]byte, KeySize)
 
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,10 +103,10 @@ func TestRoundtrip(t *testing.T) {
 	}
 }
 
-func TestModifiedData(t *testing.T) {
+func TestDraftModifiedData(t *testing.T) {
 	key := make([]byte, KeySize)
 
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -118,10 +124,10 @@ func TestModifiedData(t *testing.T) {
 	}
 }
 
-func TestModifiedCiphertext(t *testing.T) {
+func TestDraftModifiedCiphertext(t *testing.T) {
 	key := make([]byte, KeySize)
 
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -139,21 +145,21 @@ func TestModifiedCiphertext(t *testing.T) {
 	}
 }
 
-func TestNonceSize(t *testing.T) {
+func TestDraftNonceSize(t *testing.T) {
 	key := make([]byte, KeySize)
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if c.NonceSize() != chacha20.NonceSize {
-		t.Errorf("Expected nonce size of %d but was %d", chacha20.NonceSize, c.NonceSize())
+	if c.NonceSize() != chacha20.DraftNonceSize {
+		t.Errorf("Expected nonce size of %d but was %d", chacha20.DraftNonceSize, c.NonceSize())
 	}
 }
 
-func TestOverhead(t *testing.T) {
+func TestDraftOverhead(t *testing.T) {
 	key := make([]byte, KeySize)
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		t.Error(err)
 	}
@@ -163,16 +169,16 @@ func TestOverhead(t *testing.T) {
 	}
 }
 
-func TestInvalidKey(t *testing.T) {
+func TestDraftInvalidKey(t *testing.T) {
 	key := make([]byte, 31)
-	_, err := New(key)
+	_, err := NewDraft(key)
 
 	if err != ErrInvalidKey {
 		t.Errorf("Expected invalid key error but was %v", err)
 	}
 }
 
-func TestSealInvalidNonce(t *testing.T) {
+func TestDraftSealInvalidNonce(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil && r != ErrInvalidNonce {
 			t.Errorf("Expected invalid key panic but was %v", r)
@@ -180,7 +186,7 @@ func TestSealInvalidNonce(t *testing.T) {
 	}()
 
 	key := make([]byte, KeySize)
-	c, err := New(key)
+	c, err := NewDraft(key)
 
 	if err != nil {
 		t.Error(err)
@@ -192,9 +198,9 @@ func TestSealInvalidNonce(t *testing.T) {
 	c.Seal(nil, nonce, plaintext, data)
 }
 
-func TestOpenInvalidNonce(t *testing.T) {
+func TestDraftOpenInvalidNonce(t *testing.T) {
 	key := make([]byte, KeySize)
-	c, err := New(key)
+	c, err := NewDraft(key)
 
 	if err != nil {
 		t.Error(err)
@@ -212,18 +218,50 @@ func TestOpenInvalidNonce(t *testing.T) {
 	}
 }
 
-func readSecretKey(i int) []byte {
-	return make([]byte, i)
+func TestEqual(t *testing.T) {
+	t.Parallel()
+
+	if err := quick.CheckEqual(func(key, nonce, ptxt, data []byte) ([]byte, error) {
+		c, err := codahale.New(key)
+		if err != nil {
+			return nil, err
+		}
+
+		return c.Seal(nil, nonce, ptxt, data), nil
+	}, func(key, nonce, ptxt, data []byte) ([]byte, error) {
+		c, err := NewDraft(key)
+		if err != nil {
+			return nil, err
+		}
+
+		return c.Seal(nil, nonce, ptxt, data), nil
+	}, &quick.Config{
+		Values: func(args []reflect.Value, rand *rand.Rand) {
+			key := make([]byte, KeySize)
+			rand.Read(key)
+			args[0] = reflect.ValueOf(key)
+
+			nonce := make([]byte, chacha20.DraftNonceSize)
+			rand.Read(nonce)
+			args[1] = reflect.ValueOf(nonce)
+
+			ptxt := make([]byte, 1+rand.Intn(1024*1024))
+			rand.Read(ptxt)
+			args[2] = reflect.ValueOf(ptxt)
+
+			data := make([]byte, 1+rand.Intn(1024*1024))
+			rand.Read(data)
+			args[3] = reflect.ValueOf(data)
+		},
+	}); err != nil {
+		t.Error(err)
+	}
 }
 
-func readRandomNonce(i int) []byte {
-	return make([]byte, i)
-}
-
-func ExampleNew() {
+func ExampleNewDraft() {
 	key := readSecretKey(KeySize) // must be 256 bits long
 
-	c, err := New(key)
+	c, err := NewDraft(key)
 	if err != nil {
 		panic(err)
 	}

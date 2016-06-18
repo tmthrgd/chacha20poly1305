@@ -9,7 +9,7 @@ import (
 	"crypto/cipher"
 	"testing"
 
-	ref "github.com/codahale/chacha20poly1305"
+	codahale "github.com/codahale/chacha20poly1305"
 )
 
 const benchSize = 1024 * 1024
@@ -26,16 +26,23 @@ func benchmarkAEAD(b *testing.B, c cipher.AEAD) {
 	}
 }
 
-func BenchmarkChaCha20Poly1305Go(b *testing.B) {
-	key := make([]byte, ref.KeySize)
-	c, _ := ref.New(key)
+func BenchmarkDraftChaCha20Poly1305Codahale(b *testing.B) {
+	key := make([]byte, codahale.KeySize)
+	c, _ := codahale.New(key)
 
 	benchmarkAEAD(b, c)
 }
 
-func BenchmarkChaCha20Poly1305(b *testing.B) {
+func BenchmarkRFCChaCha20Poly1305(b *testing.B) {
 	key := make([]byte, KeySize)
-	c, _ := New(key)
+	c, _ := NewRFC(key)
+
+	benchmarkAEAD(b, c)
+}
+
+func BenchmarkDraftChaCha20Poly1305(b *testing.B) {
+	key := make([]byte, KeySize)
+	c, _ := NewDraft(key)
 
 	benchmarkAEAD(b, c)
 }
