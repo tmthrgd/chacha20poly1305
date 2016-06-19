@@ -230,6 +230,26 @@ func TestRFCOpenInvalidNonce(t *testing.T) {
 	}
 }
 
+func TestRFCOpenTooShort(t *testing.T) {
+	key := make([]byte, KeySize)
+	c, err := NewRFC(key)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	nonce := make([]byte, c.NonceSize())
+	plaintext := []byte("yay for me")
+	data := []byte("whoah yeah")
+	ciphertext := c.Seal(nil, nonce, plaintext, data)
+
+	_, err = c.Open(nil, nonce, ciphertext[:2], data)
+
+	if err != ErrAuthFailed {
+		t.Errorf("Expected message authentication failed error but was %v", err)
+	}
+}
+
 func readSecretKey(i int) []byte {
 	return make([]byte, i)
 }

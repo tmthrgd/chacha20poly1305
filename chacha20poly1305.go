@@ -150,6 +150,10 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 		return nil, ErrInvalidNonce
 	}
 
+	if len(ciphertext) < poly1305.TagSize {
+		return nil, ErrAuthFailed
+	}
+
 	tag := ciphertext[len(ciphertext)-poly1305.TagSize:]
 	ciphertext = ciphertext[:len(ciphertext)-poly1305.TagSize]
 
