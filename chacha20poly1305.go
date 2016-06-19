@@ -141,7 +141,7 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 	c.XORKeyStream(out, plaintext)
 
-	k.auth(pk[:32], out[len(plaintext):], out[:len(plaintext)], data)
+	k.auth(pk[:poly1305.KeySize], out[len(plaintext):], out[:len(plaintext)], data)
 	return ret
 }
 
@@ -162,7 +162,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 	c.XORKeyStream(pk[:], pk[:])
 
 	var expectedTag [poly1305.TagSize]byte
-	k.auth(pk[:32], expectedTag[:], ciphertext, data)
+	k.auth(pk[:poly1305.KeySize], expectedTag[:], ciphertext, data)
 
 	if subtle.ConstantTimeCompare(expectedTag[:], tag) != 1 {
 		return nil, ErrAuthFailed
@@ -219,7 +219,7 @@ func (k *chacha20Key) auth(key, out, ciphertext, data []byte) {
 			g.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
 		}
 
-		var zero [15]byte
+		var zero [poly1305PadLen-1]byte
 
 		m.Write(data)
 		m.Write(zero[:dPad])
