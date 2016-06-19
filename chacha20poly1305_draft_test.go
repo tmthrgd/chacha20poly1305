@@ -236,6 +236,8 @@ func TestEqual(t *testing.T) {
 
 		return c.Seal(nil, nonce, ptxt, data), nil
 	}, &quick.Config{
+		MaxCountScale: 0.1,
+
 		Values: func(args []reflect.Value, rand *rand.Rand) {
 			key := make([]byte, KeySize)
 			rand.Read(key)
