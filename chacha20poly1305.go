@@ -223,7 +223,7 @@ func (k *chacha20Key) auth(key, out, ciphertext, data []byte) {
 			g.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
 		}
 
-		var zero [poly1305PadLen-1]byte
+		var zero [poly1305PadLen - 1]byte
 
 		m.Write(data)
 		m.Write(zero[:dPad])
