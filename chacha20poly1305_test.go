@@ -275,12 +275,6 @@ func TestDraftInvalidKey(t *testing.T) {
 }
 
 func testSealInvalidNonce(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD, error)) {
-	defer func() {
-		if r := recover(); r != nil && r != ErrInvalidNonce {
-			t.Errorf("Expected invalid key panic but was %v", r)
-		}
-	}()
-
 	key := make([]byte, KeySize)
 	c, err := newChaCha20Poly1305(key)
 
@@ -291,6 +285,13 @@ func testSealInvalidNonce(t *testing.T, newChaCha20Poly1305 func(key []byte) (ci
 	nonce := make([]byte, c.NonceSize()-3)
 	plaintext := []byte("yay for me")
 	data := []byte("whoah yeah")
+
+	defer func() {
+		if r := recover(); r != ErrInvalidNonce {
+			t.Errorf("Expected invalid key panic but was %v", r)
+		}
+	}()
+
 	c.Seal(nil, nonce, plaintext, data)
 }
 
@@ -315,11 +316,13 @@ func testOpenInvalidNonce(t *testing.T, newChaCha20Poly1305 func(key []byte) (ci
 	data := []byte("whoah yeah")
 	ciphertext := c.Seal(nil, nonce, plaintext, data)
 
-	_, err = c.Open(nil, nonce[0:4], ciphertext, data)
+	defer func() {
+		if r := recover(); r != ErrInvalidNonce {
+			t.Errorf("Expected invalid key panic but was %v", r)
+		}
+	}()
 
-	if err != ErrInvalidNonce {
-		t.Errorf("Expected invalid nonce error but was %v", err)
-	}
+	c.Open(nil, nonce[:4], ciphertext, data)
 }
 
 func TestRFCOpenInvalidNonce(t *testing.T) {

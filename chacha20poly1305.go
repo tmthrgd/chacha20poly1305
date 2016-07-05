@@ -66,7 +66,7 @@ var (
 	// ErrInvalidKey is returned when the provided key is the wrong size.
 	ErrInvalidKey = errors.New("invalid key size")
 
-	// ErrInvalidNonce is returned when the provided nonce is the wrong size.
+	// ErrInvalidNonce is panicked when the provided nonce is the wrong size.
 	ErrInvalidNonce = errors.New("invalid nonce size")
 )
 
@@ -147,7 +147,7 @@ func (k *chacha20Key) Seal(dst, nonce, plaintext, data []byte) []byte {
 
 func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) {
 	if len(nonce) != k.NonceSize() {
-		return nil, ErrInvalidNonce
+		panic(ErrInvalidNonce)
 	}
 
 	if len(ciphertext) < poly1305.TagSize {
@@ -159,7 +159,7 @@ func (k *chacha20Key) Open(dst, nonce, ciphertext, data []byte) ([]byte, error) 
 
 	c, err := chacha20.New(k.key[:], nonce)
 	if err != nil {
-		return nil, err
+		panic(err) // basically impossible
 	}
 
 	var pk [64]byte
