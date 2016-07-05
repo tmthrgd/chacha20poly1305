@@ -361,6 +361,49 @@ func TestDraftOpenTooShort(t *testing.T) {
 	testOpenTooShort(t, NewDraft)
 }
 
+func testTagFailureOverwrite(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD, error), vector testVector) {
+	// The AESNI GCM code decrypts and authenticates concurrently and so
+	// overwrites the output buffer before checking the authentication tag.
+	// In order to be consistent across platforms, all implementations
+	// should do this and this test checks that.
+
+	c, err := newChaCha20Poly1305(vector.key)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ct := append([]byte(nil), vector.ciphertext...)
+	ct[len(ct)-1] ^= 1
+
+	dst := make([]byte, len(ct))
+	for i := range dst {
+		dst[i] = 42
+	}
+
+	res, err := c.Open(dst[:0], vector.nonce, ct, vector.data)
+	if err == nil {
+		t.Fatal("Bad Open still resulted in nil error.")
+	}
+
+	if res != nil {
+		t.Fatal("Failed Open returned non-nil result.")
+	}
+
+	for i := range dst[:len(res)] {
+		if dst[i] != 0 {
+			t.Fatal("Failed Open didn't zero dst buffer")
+		}
+	}
+}
+
+func TestRFCTagFailureOverwrite(t *testing.T) {
+	testTagFailureOverwrite(t, NewRFC, rfcTestVectors[0])
+}
+
+func TestDraftTagFailureOverwrite(t *testing.T) {
+	testTagFailureOverwrite(t, NewDraft, draftTestVectors[0])
+}
+
 func TestDraftEqual(t *testing.T) {
 	t.Parallel()
 
