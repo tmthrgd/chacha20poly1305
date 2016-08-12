@@ -218,15 +218,8 @@ func (k *chacha20Key) auth(key, out, ciphertext, data []byte) {
 		m.Write(ciphertext)
 		binary.Write(m, binary.LittleEndian, uint64(len(ciphertext)))
 	} else {
-		dPad := len(data) % poly1305PadLen
-		if dPad != 0 {
-			dPad = poly1305PadLen - dPad
-		}
-
-		cPad := len(ciphertext) % poly1305PadLen
-		if cPad != 0 {
-			cPad = poly1305PadLen - cPad
-		}
+		dPad := (poly1305PadLen - (len(data) % poly1305PadLen)) % poly1305PadLen
+		cPad := (poly1305PadLen - (len(ciphertext) % poly1305PadLen)) % poly1305PadLen
 
 		if g, ok := m.(grower); ok {
 			g.Grow(len(data) + dPad + len(ciphertext) + cPad + 8 + 8)
