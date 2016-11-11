@@ -75,19 +75,19 @@ var draftTestVectors = []testVector{
 }
 
 func testSealing(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD, error), vectors []testVector) {
-	t.Parallel()
-
 	for i, vector := range vectors {
-		t.Logf("Running test vector %d", i)
+		t.Run(fmt.Sprintf("vector%d", i), func(t *testing.T) {
+			c, err := newChaCha20Poly1305(vector.key)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		c, err := newChaCha20Poly1305(vector.key)
-		if err != nil {
-			t.Error(err)
-		}
+			actual := c.Seal(nil, vector.nonce, vector.plaintext, vector.data)
 
-		actual := c.Seal(nil, vector.nonce, vector.plaintext, vector.data)
+			if bytes.Equal(vector.ciphertext, actual) {
+				return
+			}
 
-		if !bytes.Equal(vector.ciphertext, actual) {
 			t.Errorf("Bad seal: expected %x, was %x", vector.ciphertext, actual)
 
 			for i, v := range vector.ciphertext {
@@ -96,7 +96,7 @@ func testSealing(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD
 					break
 				}
 			}
-		}
+		})
 	}
 }
 
@@ -109,22 +109,22 @@ func TestDraftSealing(t *testing.T) {
 }
 
 func testOpening(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD, error), vectors []testVector) {
-	t.Parallel()
-
 	for i, vector := range vectors {
-		t.Logf("Running test vector %d", i)
+		t.Run(fmt.Sprintf("vector%d", i), func(t *testing.T) {
+			c, err := newChaCha20Poly1305(vector.key)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		c, err := newChaCha20Poly1305(vector.key)
-		if err != nil {
-			t.Error(err)
-		}
+			actual, err := c.Open(nil, vector.nonce, vector.ciphertext, vector.data)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		actual, err := c.Open(nil, vector.nonce, vector.ciphertext, vector.data)
-		if err != nil {
-			t.Error(err)
-		}
+			if bytes.Equal(vector.plaintext, actual) {
+				return
+			}
 
-		if !bytes.Equal(vector.plaintext, actual) {
 			t.Errorf("Bad open: expected %x, was %x", vector.plaintext, actual)
 
 			for i, v := range vector.plaintext {
@@ -133,7 +133,7 @@ func testOpening(t *testing.T, newChaCha20Poly1305 func(key []byte) (cipher.AEAD
 					break
 				}
 			}
-		}
+		})
 	}
 }
 

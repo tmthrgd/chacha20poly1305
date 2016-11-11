@@ -12,6 +12,20 @@ import (
 	codahale "github.com/codahale/chacha20poly1305"
 )
 
+type size struct {
+	name string
+	l    int
+}
+
+var sizes = []size{
+	{"32", 32},
+	{"128", 128},
+	{"1K", 1 * 1024},
+	{"16K", 16 * 1024},
+	{"128K", 128 * 1024},
+	{"1M", 1024 * 1024},
+}
+
 func benchmarkAEAD(b *testing.B, c cipher.AEAD, l int) {
 	input := make([]byte, l)
 	output := make([]byte, 0, l+c.Overhead())
@@ -25,127 +39,47 @@ func benchmarkAEAD(b *testing.B, c cipher.AEAD, l int) {
 	}
 }
 
-func benchmarkDraftChaCha20Poly1305Codahale(b *testing.B, l int) {
-	key := make([]byte, codahale.KeySize)
-	c, _ := codahale.New(key)
+func BenchmarkDraftChaCha20Poly1305Codahale(b *testing.B) {
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			key := make([]byte, codahale.KeySize)
+			c, _ := codahale.New(key)
 
-	benchmarkAEAD(b, c, l)
+			benchmarkAEAD(b, c, size.l)
+		})
+	}
 }
 
-func BenchmarkDraftChaCha20Poly1305Codahale_32(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 32)
+func BenchmarkRFCChaCha20Poly1305(b *testing.B) {
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			key := make([]byte, KeySize)
+			c, _ := NewRFC(key)
+
+			benchmarkAEAD(b, c, size.l)
+		})
+	}
 }
 
-func BenchmarkDraftChaCha20Poly1305Codahale_128(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 128)
+func BenchmarkDraftChaCha20Poly1305(b *testing.B) {
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			key := make([]byte, KeySize)
+			c, _ := NewDraft(key)
+
+			benchmarkAEAD(b, c, size.l)
+		})
+	}
 }
 
-func BenchmarkDraftChaCha20Poly1305Codahale_1k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 1*1024)
-}
+func BenchmarkAESGCM(b *testing.B) {
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			key := make([]byte, 32)
+			a, _ := aes.NewCipher(key)
+			c, _ := cipher.NewGCM(a)
 
-func BenchmarkDraftChaCha20Poly1305Codahale_16k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 16*1024)
-}
-
-func BenchmarkDraftChaCha20Poly1305Codahale_128k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 128*1024)
-}
-
-func BenchmarkDraftChaCha20Poly1305Codahale_1M(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305Codahale(b, 1024*1024)
-}
-
-func benchmarkRFCChaCha20Poly1305(b *testing.B, l int) {
-	key := make([]byte, KeySize)
-	c, _ := NewRFC(key)
-
-	benchmarkAEAD(b, c, l)
-}
-
-func BenchmarkRFCChaCha20Poly1305_32(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 32)
-}
-
-func BenchmarkRFCChaCha20Poly1305_128(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 128)
-}
-
-func BenchmarkRFCChaCha20Poly1305_1k(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 1*1024)
-}
-
-func BenchmarkRFCChaCha20Poly1305_16k(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 16*1024)
-}
-
-func BenchmarkRFCChaCha20Poly1305_128k(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 128*1024)
-}
-
-func BenchmarkRFCChaCha20Poly1305_1M(b *testing.B) {
-	benchmarkRFCChaCha20Poly1305(b, 1024*1024)
-}
-
-func benchmarkDraftChaCha20Poly1305(b *testing.B, l int) {
-	key := make([]byte, KeySize)
-	c, _ := NewDraft(key)
-
-	benchmarkAEAD(b, c, l)
-}
-
-func BenchmarkDraftChaCha20Poly1305_32(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 32)
-}
-
-func BenchmarkDraftChaCha20Poly1305_128(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 128)
-}
-
-func BenchmarkDraftChaCha20Poly1305_1k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 1*1024)
-}
-
-func BenchmarkDraftChaCha20Poly1305_16k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 16*1024)
-}
-
-func BenchmarkDraftChaCha20Poly1305_128k(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 128*1024)
-}
-
-func BenchmarkDraftChaCha20Poly1305_1M(b *testing.B) {
-	benchmarkDraftChaCha20Poly1305(b, 1024*1024)
-}
-
-func benchmarkAESGCM(b *testing.B, l int) {
-	key := make([]byte, 32)
-	a, _ := aes.NewCipher(key)
-	c, _ := cipher.NewGCM(a)
-
-	benchmarkAEAD(b, c, l)
-}
-
-func BenchmarkAESGCM_32(b *testing.B) {
-	benchmarkAESGCM(b, 32)
-}
-
-func BenchmarkAESGCM_128(b *testing.B) {
-	benchmarkAESGCM(b, 128)
-}
-
-func BenchmarkAESGCM_1k(b *testing.B) {
-	benchmarkAESGCM(b, 1*1024)
-}
-
-func BenchmarkAESGCM_16k(b *testing.B) {
-	benchmarkAESGCM(b, 16*1024)
-}
-
-func BenchmarkAESGCM_128k(b *testing.B) {
-	benchmarkAESGCM(b, 128*1024)
-}
-
-func BenchmarkAESGCM_1M(b *testing.B) {
-	benchmarkAESGCM(b, 1024*1024)
+			benchmarkAEAD(b, c, size.l)
+		})
+	}
 }
