@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	codahale "github.com/codahale/chacha20poly1305"
+	xcrypto "golang.org/x/crypto/chacha20poly1305"
 )
 
 type size struct {
@@ -66,6 +67,17 @@ func BenchmarkDraftChaCha20Poly1305(b *testing.B) {
 		b.Run(size.name, func(b *testing.B) {
 			key := make([]byte, KeySize)
 			c, _ := NewDraft(key)
+
+			benchmarkAEAD(b, c, size.l)
+		})
+	}
+}
+
+func BenchmarkXCryptoChaCha20Poly1305(b *testing.B) {
+	for _, size := range sizes {
+		b.Run(size.name, func(b *testing.B) {
+			key := make([]byte, xcrypto.KeySize)
+			c, _ := xcrypto.New(key)
 
 			benchmarkAEAD(b, c, size.l)
 		})
