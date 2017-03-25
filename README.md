@@ -11,8 +11,8 @@ and [RFC7539](https://tools.ietf.org/html/rfc7539).
 
 ```
 BenchmarkDraftChaCha20Poly1305Codahale/1M-8         	     200	   8841226 ns/op	 118.60 MB/s	[codahale/chacha20poly1305]
-BenchmarkRFCChaCha20Poly1305/1M-8                   	    2000	   1102269 ns/op	 951.29 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
-BenchmarkDraftChaCha20Poly1305/1M-8                 	    2000	   1099426 ns/op	 953.75 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
+BenchmarkRFCChaCha20Poly1305/1M-8                   	    2000	   1190440 ns/op	 880.83 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
+BenchmarkDraftChaCha20Poly1305/1M-8                 	    1000	   1219685 ns/op	 859.71 MB/s	[tmthrgd/chacha20poly1305 - AVX only]
 BenchmarkXCryptoChaCha20Poly1305/1M-8               	    2000	   1071064 ns/op	 979.00 MB/s	[x/crypto/chacha20poly1305 - AVX only]
 BenchmarkAESGCM/1M-8                                	    2000	    864059 ns/op	1213.55 MB/s	[crypto/aes crypto/cipher]
 ```
