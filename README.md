@@ -3,6 +3,10 @@
 [![GoDoc](https://godoc.org/github.com/tmthrgd/chacha20poly1305?status.svg)](https://godoc.org/github.com/tmthrgd/chacha20poly1305)
 [![Build Status](https://travis-ci.org/tmthrgd/chacha20poly1305.svg?branch=master)](https://travis-ci.org/tmthrgd/chacha20poly1305)
 
+**Deprecated**: This is a legacy implementation. New users should use
+[x/crypto/chacha20poly1305](https://godoc.org/golang.org/x/crypto/chacha20poly1305) which exclusively implements
+[RFC7539](https://tools.ietf.org/html/rfc7539).
+
 An implementation of the chacha20poly1305 AEAD construction from
 [draft-agl-tls-chacha20poly1305-03](http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-03)
 and [RFC7539](https://tools.ietf.org/html/rfc7539).
